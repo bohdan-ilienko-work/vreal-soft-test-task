@@ -7,9 +7,10 @@ import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
 import { AccessTokenStrategy } from './strategies/access-token.strategy';
 import { JwtModule } from '@nestjs/jwt';
 import { UsersModule } from 'src/users/users.module';
+import { FoldersModule } from 'src/folders/folders.module';
 
 @Module({
-  imports: [PassportModule, JwtModule.register({}), UsersModule],
+  imports: [PassportModule, JwtModule.register({}), UsersModule, FoldersModule],
   providers: [
     GoogleStrategy,
     AuthService,

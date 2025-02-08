@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryColumn } from 'typeorm';
+import { Folder } from 'src/folders/entities/folder.entity';
+import { Entity, Column, PrimaryColumn, OneToMany } from 'typeorm';
 
 @Entity()
 export class User {
@@ -7,4 +8,7 @@ export class User {
 
   @Column({ unique: true })
   email: string;
+
+  @OneToMany(() => Folder, (folder) => folder.user)
+  folders: Folder[];
 }
