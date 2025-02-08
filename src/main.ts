@@ -19,7 +19,6 @@ async function bootstrap() {
     .setTitle('Test task for VReal Soft')
     .setDescription('The test task for VReal Soft')
     .setVersion('1.0')
-    .addTag('auth')
     .addBearerAuth({
       type: 'http',
       scheme: 'Bearer',
@@ -39,4 +38,5 @@ async function bootstrap() {
   await app.listen(PORT);
   Logger.log(`🚀 Server running on http://localhost:${PORT}`, 'Bootstrap');
 }
+
 bootstrap();
