@@ -9,6 +9,7 @@ import {
 
 import { File } from 'src/files/entities/file.entity';
 import { AccessType } from 'src/core';
+import { Sharing } from 'src/sharing/entities/sharing.entity';
 
 @Entity()
 export class Folder {
@@ -43,4 +44,9 @@ export class Folder {
     default: AccessType.PRIVATE,
   })
   accessType: AccessType;
+
+  @OneToMany(() => Sharing, (sharing) => sharing.folder, {
+    onDelete: 'CASCADE',
+  })
+  sharings: Sharing[];
 }

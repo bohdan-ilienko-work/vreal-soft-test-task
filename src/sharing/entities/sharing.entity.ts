@@ -26,7 +26,7 @@ export class Sharing {
   @ManyToOne(() => User, (User) => User.receivedFiles, { onDelete: 'CASCADE' })
   sharedWith: User;
 
-  @ManyToOne(() => Folder, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Folder, (Folder) => Folder.sharings, { onDelete: 'CASCADE' })
   folder: Folder;
 
   @Column({

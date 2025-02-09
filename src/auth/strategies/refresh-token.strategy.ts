@@ -8,14 +8,16 @@ export class RefreshTokenStrategy extends PassportStrategy(
   'refresh',
 ) {
   constructor() {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     super({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false, // Проверяем, не истёк ли токен
-      secretOrKey: process.env.JWT_REFRESH_SECRET, // Секретный ключ для проверки refresh токена
+      ignoreExpiration: false,
+      secretOrKey: process.env.JWT_REFRESH_SECRET,
     });
   }
 
-  async validate(payload: any) {
+  validate(payload: { userId: string }) {
     return { userId: payload.userId };
   }
 }

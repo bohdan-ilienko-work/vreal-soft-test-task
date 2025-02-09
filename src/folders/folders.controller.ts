@@ -58,6 +58,17 @@ export class FoldersController {
     return this.foldersService.getSharedFolder(userId, id);
   }
 
+  @Patch(':id/shared')
+  @ApiBearerAuth()
+  @UseGuards(AccessTokenGuard)
+  updateSharedFolder(
+    @UserId() userId: string,
+    @Param('id') id: string,
+    @Body() createFolderDto: CreateFolderDto,
+  ) {
+    return this.foldersService.updateSharedFolder(userId, id, createFolderDto);
+  }
+
   @Get(':id/raw')
   @ApiBearerAuth()
   @UseGuards(AccessTokenGuard)
