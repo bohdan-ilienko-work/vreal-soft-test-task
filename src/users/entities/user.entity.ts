@@ -1,4 +1,5 @@
 import { Folder } from 'src/folders/entities/folder.entity';
+import { Sharing } from 'src/sharing/entities/sharing.entity';
 import { Entity, Column, PrimaryColumn, OneToMany } from 'typeorm';
 
 @Entity()
@@ -11,4 +12,10 @@ export class User {
 
   @OneToMany(() => Folder, (folder) => folder.user)
   folders: Folder[];
+
+  @OneToMany(() => Sharing, (sharing) => sharing.sharedBy)
+  sharedFiles: Sharing[];
+
+  @OneToMany(() => Sharing, (sharing) => sharing.sharedWith)
+  receivedFiles: Sharing[];
 }

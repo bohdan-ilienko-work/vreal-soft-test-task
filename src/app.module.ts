@@ -9,11 +9,13 @@ import { UsersModule } from './users/users.module';
 import { FilesModule } from './files/files.module';
 import { FoldersModule } from './folders/folders.module';
 import { MailModule } from './mail/mail.module';
+import { SharingModule } from './sharing/sharing.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: process.env.NODE_ENV === 'prod' ? '.env' : '.env.dev',
       validationSchema: Joi.object({
         // AWS S3 validation
         AWS_ACCESS_KEY: Joi.string().required(),
@@ -75,6 +77,7 @@ import { MailModule } from './mail/mail.module';
     FilesModule,
     FoldersModule,
     MailModule,
+    SharingModule,
   ],
   providers: [
     {

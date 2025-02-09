@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { AccessType } from 'src/core';
 
 export class UpdateFileDto {
   @ApiProperty({
@@ -19,4 +20,13 @@ export class UpdateFileDto {
   @IsUUID()
   @IsOptional()
   folderId?: string;
+
+  @ApiProperty({
+    description: 'The type of access to grant',
+    enum: AccessType,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsEnum(AccessType)
+  accessType?: AccessType;
 }
