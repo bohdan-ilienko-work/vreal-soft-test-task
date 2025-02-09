@@ -5,6 +5,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import * as archiver from 'archiver';
+import { Archiver, Format } from 'archiver';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Folder } from './entities/folder.entity';
 import { Repository } from 'typeorm';
@@ -12,6 +14,8 @@ import { CreateFolderDto } from './dto/create-folder.dto';
 import { CloneFolderType } from './dto/clone-folder-config.dto';
 import { File } from 'src/files/entities/file.entity';
 import { FilesService } from 'src/files/files.service';
+import { SendArchiveViaEmailDto } from './dto/send-archive-via-email.dto';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class FoldersService {
@@ -21,6 +25,7 @@ export class FoldersService {
     private readonly foldersRepository: Repository<Folder>,
     @Inject(forwardRef(() => FilesService))
     private readonly filesService: FilesService,
+    private readonly mailService: MailService,
   ) {}
 
   async createFolder(userId: string, createFolderDto: CreateFolderDto) {
@@ -208,6 +213,83 @@ export class FoldersService {
     });
 
     return rootFolder!;
+  }
+
+  async sendArchiveViaEmail(
+    userId: string,
+    folderId: string,
+    sendArchiveViaEmailDto: SendArchiveViaEmailDto,
+  ) {
+    const { email, archiveType, useHtml } = sendArchiveViaEmailDto as {
+      email: string;
+      archiveType: Format;
+      useHtml: boolean;
+    };
+
+    const folderTree = await this.getFolder(userId, folderId);
+
+    // Create archive buffer
+    const archive: Archiver = archiver(archiveType, { zlib: { level: 9 } });
+    const archiveBuffer = await new Promise<Buffer>((resolve, reject) => {
+      const buffers: Buffer[] = [];
+
+      archive.on('data', (data) => buffers.push(data));
+      archive.on('end', () => resolve(Buffer.concat(buffers)));
+      archive.on('error', (err: Error) => reject(err));
+
+      // Recursive function to add files to archive
+      const addFilesToArchive = async (folder: Folder, parentPath = '') => {
+        const folderPath = parentPath
+          ? `${parentPath}/${folder.name}`
+          : folder.name;
+
+        if (folder.files.length === 0 && folder.children.length === 0) {
+          archive.append('', { name: `${folderPath}/` }); // Add empty folder
+        }
+
+        for (const file of folder.files) {
+          const fileStream = await this.filesService.getFileStream(
+            file.id,
+            file.name,
+          );
+          if (fileStream) {
+            archive.append(fileStream, { name: `${folderPath}/${file.name}` });
+          }
+        }
+
+        for (const childFolder of folder.children) {
+          await addFilesToArchive(childFolder, folderPath);
+        }
+      };
+
+      addFilesToArchive(folderTree)
+        .then(() => archive.finalize())
+        .catch((err: Error) => reject(err));
+    });
+
+    // Send email with archive
+    await this.mailService.sendMail({
+      to: email,
+      subject: `Archive of folder ${folderTree.name}`,
+      text: useHtml ? undefined : `Please find the requested archive attached.`,
+      html: useHtml
+        ? `
+      <div style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; border-radius: 10px; text-align: center;">
+        <h2 style="color: #333;">Folder Archive</h2>
+        <p style="color: #555;">Attached is the archive of the folder <strong>${folderTree.name}</strong>.</p>
+        <p style="font-size: 12px; color: #999;">If you have any issues, contact support.</p>
+      </div>
+    `
+        : undefined,
+      attachments: [
+        {
+          filename: `${folderTree.name}.${archiveType}`,
+          content: archiveBuffer,
+        },
+      ],
+    });
+
+    return { message: `Archive successfully sent to ${email}` };
   }
 
   getFoldersRaw(userId: string) {

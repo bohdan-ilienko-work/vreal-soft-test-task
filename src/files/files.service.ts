@@ -17,6 +17,9 @@ import { FoldersService } from 'src/folders/folders.service';
 import { v4 as uuid } from 'uuid';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { UpdateFileDto } from './dto/update-file.dto';
+import { MailService } from 'src/mail/mail.service';
+import { SendFileViaEmailDto } from './dto/send-file-via-email.dto';
+import { MailOptions } from 'src/mail/dto/mail-options.dto';
 
 @Injectable()
 export class FilesService {
@@ -37,6 +40,7 @@ export class FilesService {
 
     @Inject(forwardRef(() => FoldersService))
     private readonly foldersService: FoldersService,
+    private readonly mailService: MailService,
   ) {}
 
   async uploadFile(
@@ -59,6 +63,54 @@ export class FilesService {
       user: { id: userId },
       folder: { id: folderId },
     });
+  }
+
+  async sendFileViaEmail(
+    userId: string,
+    sendFileViaEmailDto: SendFileViaEmailDto,
+  ) {
+    const { fileId, email: targetEmail, useHtml } = sendFileViaEmailDto;
+
+    const file = await this.fileRepository.findOne({
+      where: { id: fileId, folder: { user: { id: userId } } },
+    });
+
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: this.configService.getOrThrow<string>('AWS_S3_BUCKET_NAME'),
+      Key: `${file.id}.${file.name.split('.').pop()}`,
+    });
+
+    const { Body } = await this.s3Client.send(command);
+    const buffer = Body as Buffer | undefined;
+
+    const mailOptions: MailOptions = {
+      to: targetEmail,
+      subject: 'File sharing',
+      text: useHtml
+        ? undefined
+        : `Here is the file you requested: ${file.name}`,
+      html: useHtml
+        ? `
+        <div style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; border-radius: 10px; text-align: center;">
+          <h2 style="color: #333;">File Sharing</h2>
+          <p style="color: #555;">Here is the file you requested: <strong>${file.name}</strong></p>
+          <a href="#" style="display: inline-block; background-color: #007bff; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 5px; font-weight: bold;">Download File</a>
+          <p style="font-size: 12px; color: #999;">If you have any issues, contact support.</p>
+        </div>
+      `
+        : undefined,
+      attachments: [{ filename: file.name, content: buffer! }],
+    };
+
+    await this.mailService.sendMail(mailOptions);
+
+    return {
+      message: `File sent successfully as ${useHtml ? 'HTML' : 'text'} email`,
+    };
   }
 
   async getFiles(userId: string, folderId: string) {
@@ -186,5 +238,16 @@ export class FilesService {
     await this.s3Client.send(new GetObjectCommand(deleteParams));
 
     return this.fileRepository.remove(file);
+  }
+
+  getFileStream(fileId: string, fileName: string) {
+    const command = new GetObjectCommand({
+      Bucket: this.configService.getOrThrow<string>('AWS_S3_BUCKET_NAME'),
+      Key: `${fileId}.${fileName.split('.').pop()}`,
+    });
+
+    return this.s3Client
+      .send(command)
+      .then(({ Body }) => Body as Buffer | undefined);
   }
 }

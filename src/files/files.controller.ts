@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Delete,
-  FileTypeValidator,
   Get,
   MaxFileSizeValidator,
   Param,
@@ -21,6 +20,7 @@ import { UserId } from 'src/auth/decorators/user-id.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FilesService } from './files.service';
 import { UpdateFileDto } from './dto/update-file.dto';
+import { SendFileViaEmailDto } from './dto/send-file-via-email.dto';
 
 @Controller('files')
 export class FilesController {
@@ -46,6 +46,16 @@ export class FilesController {
     @Body() createFileDto: CreateFileDto,
   ) {
     return this.filesService.uploadFile(userId, createFileDto.folderId, file);
+  }
+
+  @Post(':fileId/:email/send-via-email')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth()
+  sendFileViaEmail(
+    @UserId() userId: string,
+    @Param() sendFileViaEmailDto: SendFileViaEmailDto,
+  ) {
+    return this.filesService.sendFileViaEmail(userId, sendFileViaEmailDto);
   }
 
   @Get()

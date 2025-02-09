@@ -14,6 +14,7 @@ import { CreateFolderDto } from './dto/create-folder.dto';
 import { AccessTokenGuard } from 'src/auth/guards/access-token.guard';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { CloneFolderConfigDto } from './dto/clone-folder-config.dto';
+import { SendArchiveViaEmailDto } from './dto/send-archive-via-email.dto';
 
 @Controller('folders')
 export class FoldersController {
@@ -69,6 +70,21 @@ export class FoldersController {
       userId,
       id,
       cloneFolderConfigDto.copyType,
+    );
+  }
+
+  @Post(':folderId/send-archive-via-email')
+  @ApiBearerAuth()
+  @UseGuards(AccessTokenGuard)
+  sendArchiveViaEmail(
+    @UserId() userId: string,
+    @Param('folderId') folderId: string,
+    @Body() sendArchiveViaEmailDto: SendArchiveViaEmailDto,
+  ) {
+    return this.foldersService.sendArchiveViaEmail(
+      userId,
+      folderId,
+      sendArchiveViaEmailDto,
     );
   }
 
