@@ -21,6 +21,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { FilesService } from './files.service';
 import { UpdateFileDto } from './dto/update-file.dto';
 import { SendFileViaEmailDto } from './dto/send-file-via-email.dto';
+import { UpdateSharedFileDto } from './dto/update-shared-file.dto';
 
 @Controller('files')
 export class FilesController {
@@ -70,6 +71,24 @@ export class FilesController {
   @ApiBearerAuth()
   getFile(@UserId() userId: string, @Param('id') id: string) {
     return this.filesService.getFile(userId, id);
+  }
+
+  @Get(':id/shared')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth()
+  getSharedFile(@UserId() userId: string, @Param('id') id: string) {
+    return this.filesService.getSharedFile(userId, id);
+  }
+
+  @Patch(':id/shared')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth()
+  updateSharedFile(
+    @UserId() userId: string,
+    @Param('id') id: string,
+    @Body() updateSharedFileDto: UpdateSharedFileDto,
+  ) {
+    return this.filesService.updateSharedFile(userId, id, updateSharedFileDto);
   }
 
   @Patch(':id')

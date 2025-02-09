@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { FoldersService } from 'src/folders/folders.service';
@@ -23,6 +23,16 @@ export class AuthService {
     }
 
     return this.generateTokens(id);
+  }
+
+  async refresh(userId: string) {
+    const user = await this.usersService.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return this.generateTokens(userId);
   }
 
   generateTokens(userId: string): {

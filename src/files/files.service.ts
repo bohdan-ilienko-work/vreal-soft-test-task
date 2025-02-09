@@ -20,6 +20,7 @@ import { UpdateFileDto } from './dto/update-file.dto';
 import { MailService } from 'src/mail/mail.service';
 import { SendFileViaEmailDto } from './dto/send-file-via-email.dto';
 import { MailOptions } from 'src/mail/dto/mail-options.dto';
+import { AccessType } from 'src/core';
 
 @Injectable()
 export class FilesService {
@@ -111,6 +112,42 @@ export class FilesService {
     return {
       message: `File sent successfully as ${useHtml ? 'HTML' : 'text'} email`,
     };
+  }
+
+  async getSharedFile(userId: string, fileId: string) {
+    const file = await this.fileRepository.findOne({
+      where: {
+        id: fileId,
+        accessType: AccessType.PUBLIC,
+        folder: { sharings: { sharedWith: { id: userId } } },
+      },
+    });
+
+    if (!file) throw new NotFoundException('File not found');
+
+    return {
+      ...file,
+      presignedUrl: await this.getPresignedUrl(fileId),
+    };
+  }
+
+  async updateSharedFile(
+    userId: string,
+    fileId: string,
+    updateSharedFileDto: UpdateFileDto,
+  ) {
+    const file = await this.fileRepository.findOne({
+      where: {
+        id: fileId,
+        accessType: AccessType.PUBLIC,
+        folder: { sharings: { sharedWith: { id: userId } } },
+      },
+    });
+
+    if (!file) throw new NotFoundException('File not found');
+
+    Object.assign(file, updateSharedFileDto);
+    return this.fileRepository.save(file);
   }
 
   async getFiles(userId: string, folderId: string) {

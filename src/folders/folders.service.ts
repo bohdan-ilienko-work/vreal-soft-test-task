@@ -18,6 +18,8 @@ import { SendArchiveViaEmailDto } from './dto/send-archive-via-email.dto';
 import { MailService } from 'src/mail/mail.service';
 import { SharingService } from 'src/sharing/sharing.service';
 import { AccessType } from 'src/core';
+import { UpdateSharedFolderDto } from './dto/update-shared-folder.dto';
+import { SharingAccessType } from 'src/sharing/entities/sharing.entity';
 
 @Injectable()
 export class FoldersService {
@@ -218,6 +220,7 @@ export class FoldersService {
 
     return rootFolder!;
   }
+
   async getSharedFolder(userId: string, folderId: string) {
     const sharing = await this.sharingService.getSharingForUserToFolder(
       userId,
@@ -253,6 +256,27 @@ export class FoldersService {
     await filterFolder(folder);
 
     return folder;
+  }
+
+  async updateSharedFolder(
+    userId: string,
+    folderId: string,
+    updateSharedFolderDto: UpdateSharedFolderDto,
+  ) {
+    const sharing = await this.sharingService.getSharingForUserToFolder(
+      userId,
+      folderId,
+    );
+
+    if (sharing.accessType !== SharingAccessType.WRITE) {
+      throw new ForbiddenException('Forbidden access');
+    }
+
+    const folder = await this.findById(folderId);
+
+    return this.foldersRepository.save(
+      Object.assign(folder!, updateSharedFolderDto),
+    );
   }
 
   async sendArchiveViaEmail(

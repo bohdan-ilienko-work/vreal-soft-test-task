@@ -12,6 +12,7 @@ import { MailService } from 'src/mail/mail.service';
 import { CreateSharingDto } from './dto/create-sharing.dto';
 import { UsersService } from 'src/users/users.service';
 import { ConfigService } from '@nestjs/config';
+import { UpdateSharingDto } from './dto/update-sharing.dto';
 
 @Injectable()
 export class SharingService {
@@ -74,6 +75,20 @@ export class SharingService {
     };
   }
 
+  async getSharedByUser(userId: string) {
+    return this.sharingRepository.find({
+      where: { sharedBy: { id: userId } },
+      relations: ['folder', 'sharedBy', 'sharedWith'],
+    });
+  }
+
+  async getSharedWithUser(userId: string) {
+    return this.sharingRepository.find({
+      where: { sharedWith: { id: userId } },
+      relations: ['folder', 'sharedBy', 'sharedWith'],
+    });
+  }
+
   async getSharingForUserToFolder(userId: string, folderId: string) {
     const sharing = await this.sharingRepository.findOne({
       where: {
@@ -88,5 +103,43 @@ export class SharingService {
     }
 
     return sharing;
+  }
+
+  async updateSharing(
+    userId: string,
+    sharingId: string,
+    updateSharingDto: UpdateSharingDto,
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { sharedWith, useHtml, ...updateSharingData } = updateSharingDto;
+    const sharing = await this.sharingRepository.findOne({
+      where: { id: sharingId, sharedWith: { id: userId } },
+    });
+
+    if (!sharing) {
+      throw new NotFoundException('Sharing not found');
+    }
+
+    await this.sharingRepository.update(sharingId, updateSharingData);
+
+    return {
+      message: 'Sharing updated successfully',
+    };
+  }
+
+  async deleteSharing(userId: string, sharingId: string) {
+    const sharing = await this.sharingRepository.findOne({
+      where: { id: sharingId, sharedBy: { id: userId } },
+    });
+
+    if (!sharing) {
+      throw new NotFoundException('Sharing not found');
+    }
+
+    await this.sharingRepository.delete(sharingId);
+
+    return {
+      message: 'Sharing deleted successfully',
+    };
   }
 }
