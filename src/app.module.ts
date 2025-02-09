@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { FilesModule } from './files/files.module';
 import { FoldersModule } from './folders/folders.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -40,6 +41,10 @@ import { FoldersModule } from './folders/folders.module';
         JWT_REFRESH_SECRET: Joi.string().required(),
         JWT_ACCESS_EXPIRES_IN: Joi.string().required(),
         JWT_REFRESH_EXPIRES_IN: Joi.string().required(),
+
+        // SMTP validation
+        SMTP_USER: Joi.string().required(),
+        SMTP_PASS: Joi.string().required(),
       }),
     }),
     TypeOrmModule.forRootAsync({
@@ -69,6 +74,7 @@ import { FoldersModule } from './folders/folders.module';
     UsersModule,
     FilesModule,
     FoldersModule,
+    MailModule,
   ],
   providers: [
     {
