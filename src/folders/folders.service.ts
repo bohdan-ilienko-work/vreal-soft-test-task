@@ -16,6 +16,8 @@ import { File } from 'src/files/entities/file.entity';
 import { FilesService } from 'src/files/files.service';
 import { SendArchiveViaEmailDto } from './dto/send-archive-via-email.dto';
 import { MailService } from 'src/mail/mail.service';
+import { SharingService } from 'src/sharing/sharing.service';
+import { AccessType } from 'src/core';
 
 @Injectable()
 export class FoldersService {
@@ -26,6 +28,8 @@ export class FoldersService {
     @Inject(forwardRef(() => FilesService))
     private readonly filesService: FilesService,
     private readonly mailService: MailService,
+    @Inject(forwardRef(() => SharingService))
+    private readonly sharingService: SharingService,
   ) {}
 
   async createFolder(userId: string, createFolderDto: CreateFolderDto) {
@@ -213,6 +217,42 @@ export class FoldersService {
     });
 
     return rootFolder!;
+  }
+  async getSharedFolder(userId: string, folderId: string) {
+    const sharing = await this.sharingService.getSharingForUserToFolder(
+      userId,
+      folderId,
+    );
+
+    const folder = await this.getFolder(sharing.sharedBy.id, folderId);
+
+    const filterFolder = async (folder: Folder) => {
+      folder.children = folder.children.filter(
+        (child) => child.accessType !== AccessType.PRIVATE,
+      );
+      folder.files = folder.files.filter(
+        (file) => file.accessType !== AccessType.PRIVATE,
+      );
+
+      const presignedUrls = await this.filesService.getPresignedUrls(
+        folder.files.map((file) => file.id),
+      );
+
+      folder.files = folder.files.map((file) => {
+        const presignedUrl = presignedUrls.find(
+          (presigned) => presigned.fileId === file.id,
+        );
+        return { ...file, presignedUrl: presignedUrl?.presignedUrl };
+      });
+
+      for (const child of folder.children) {
+        await filterFolder(child);
+      }
+    };
+
+    await filterFolder(folder);
+
+    return folder;
   }
 
   async sendArchiveViaEmail(

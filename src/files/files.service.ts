@@ -145,16 +145,50 @@ export class FilesService {
       throw new NotFoundException('File not found');
     }
 
+    const presignedUrl = await this.getPresignedUrl(fileId);
+
+    return { ...file, presignedUrl };
+  }
+
+  async getPresignedUrl(fileId: string) {
+    const file = await this.fileRepository.findOne({
+      where: { id: fileId },
+    });
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+
     const command = new GetObjectCommand({
       Bucket: this.configService.getOrThrow<string>('AWS_S3_BUCKET_NAME'),
       Key: `${file.id}.${file.name.split('.').pop()}`,
     });
 
-    const presignedUrl = await getSignedUrl(this.s3Client, command, {
-      expiresIn: 60,
+    return getSignedUrl(this.s3Client, command, { expiresIn: 60 });
+  }
+
+  async getPresignedUrls(fileIds: string[]) {
+    const files = await this.fileRepository.find({
+      where: fileIds.map((id) => ({ id })),
     });
 
-    return { ...file, presignedUrl };
+    const commands = files.map(
+      (file) =>
+        new GetObjectCommand({
+          Bucket: this.configService.getOrThrow<string>('AWS_S3_BUCKET_NAME'),
+          Key: `${file.id}.${file.name.split('.').pop()}`,
+        }),
+    );
+
+    const presignedUrls = await Promise.all(
+      commands.map((command) =>
+        getSignedUrl(this.s3Client, command, { expiresIn: 60 }),
+      ),
+    );
+
+    return files.map((file, index) => ({
+      fileId: file.id,
+      presignedUrl: presignedUrls[index],
+    }));
   }
 
   async updateFile(
@@ -162,32 +196,22 @@ export class FilesService {
     fileId: string,
     updateFileDto: UpdateFileDto,
   ) {
-    const { name, folderId } = updateFileDto;
-
     const file = await this.fileRepository.findOne({
       where: { id: fileId, folder: { user: { id: userId } } },
     });
+    if (!file) throw new NotFoundException('File not found');
 
-    if (!file) {
-      throw new NotFoundException('File not found');
-    }
-
-    if (folderId) {
-      const folder = await this.foldersService.findById(folderId);
-
+    if (updateFileDto.folderId) {
+      const folder = await this.foldersService.findById(updateFileDto.folderId);
       if (!folder || folder.user.id !== userId) {
         throw new NotFoundException(
           'Target folder not found or forbidden access',
         );
       }
-
       file.folder = folder;
     }
 
-    if (name) {
-      file.name = name;
-    }
-
+    Object.assign(file, updateFileDto);
     return this.fileRepository.save(file);
   }
 
@@ -197,7 +221,7 @@ export class FilesService {
     newFolderId: string,
   ) {
     const files: File[] = await this.fileRepository.find({
-      where: { folder: { id: folderId } },
+      where: { folder: { id: folderId, user: { id: userId } } },
     });
     const clonedFiles: File[] = files.map((file: File) =>
       this.fileRepository.create({
