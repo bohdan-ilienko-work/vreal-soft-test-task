@@ -54,6 +54,7 @@ import { SharingModule } from './sharing/sharing.module';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
+        ssl: process.env.NODE_ENV === 'prod' ? true : false,
         host: configService.getOrThrow<string>('DB_HOST'),
         port: configService.getOrThrow<number>('DB_PORT'),
         username: configService.getOrThrow<string>('DB_USERNAME'),
