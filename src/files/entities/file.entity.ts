@@ -22,4 +22,7 @@ export class File {
     default: AccessType.PRIVATE,
   })
   accessType: AccessType;
+
+  @Column({ type: 'int', default: 1 })
+  order: number;
 }
