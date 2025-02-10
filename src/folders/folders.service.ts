@@ -394,18 +394,25 @@ export class FoldersService {
     return { message: `Archive successfully sent to ${email}` };
   }
 
-  //TODO: need to be tested
-  getFoldersRaw(userId: string) {
-    return this.foldersRepository.find({
-      where: { user: { id: userId } },
-      relations: ['user', 'parent', 'children', 'files'],
-      order: {
-        order: 'ASC',
-        files: {
-          order: 'ASC',
-        },
-      },
-    });
+  async getFoldersRaw(userId: string, name?: string) {
+    const queryBuilder = this.foldersRepository
+      .createQueryBuilder('folder')
+      .leftJoinAndSelect('folder.user', 'user')
+      .leftJoinAndSelect('folder.parent', 'parent')
+      .leftJoinAndSelect('folder.children', 'children')
+      .leftJoinAndSelect('folder.files', 'files')
+      .where('folder.userId = :userId', { userId })
+      .orderBy('folder.order', 'ASC')
+      .addOrderBy('files.order', 'ASC');
+
+    if (name) {
+      queryBuilder.andWhere(
+        `(folder.name ILIKE :name OR files.name ILIKE :name)`,
+        { name: `%${name}%` },
+      );
+    }
+
+    return queryBuilder.getMany();
   }
 
   //TODO: need to be tested

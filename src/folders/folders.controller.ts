@@ -6,13 +6,14 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { FoldersService } from './folders.service';
 import { UserId } from 'src/auth/decorators/user-id.decorator';
 import { CreateFolderDto } from './dto/create-folder.dto';
 import { AccessTokenGuard } from 'src/auth/guards/access-token.guard';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CloneFolderConfigDto } from './dto/clone-folder-config.dto';
 import { SendArchiveViaEmailDto } from './dto/send-archive-via-email.dto';
 import { UpdateFolderOrderDto } from './dto/update-folder-order.dto';
@@ -40,9 +41,10 @@ export class FoldersController {
 
   @Get('raw')
   @ApiBearerAuth()
+  @ApiQuery({ name: 'name', required: false })
   @UseGuards(AccessTokenGuard)
-  getFoldersRaw(@UserId() userId: string) {
-    return this.foldersService.getFoldersRaw(userId);
+  getFoldersRaw(@UserId() userId: string, @Query('name') name?: string) {
+    return this.foldersService.getFoldersRaw(userId, name);
   }
 
   @Get(':id')
