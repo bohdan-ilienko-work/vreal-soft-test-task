@@ -17,7 +17,9 @@ async function bootstrap() {
 
   const options = new DocumentBuilder()
     .setTitle('Test task for VReal Soft')
-    .setDescription('The test task for VReal Soft')
+    .setDescription(
+      'The test task for VReal Soft. GitHub: https://github.com/bohdan-ilienko-work/vreal-soft-test-task',
+    )
     .setVersion('1.0')
     .addBearerAuth({
       type: 'http',
