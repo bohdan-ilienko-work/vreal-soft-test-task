@@ -22,17 +22,22 @@ import { SharingModule } from './sharing/sharing.module';
         AWS_SECRET_ACCESS_KEY: Joi.string().required(),
         AWS_S3_REGION: Joi.string().required(),
         AWS_S3_BUCKET_NAME: Joi.string().required(),
+
         // Throttler validation
         THROTTLE_TTL: Joi.number().required(),
         THROTTLE_LIMIT: Joi.number().required(),
+
         // Database connection validation
         DB_HOST: Joi.string().required(),
         DB_PORT: Joi.number().required(),
         DB_USERNAME: Joi.string().required(),
         DB_PASSWORD: Joi.string().required(),
         DB_NAME: Joi.string().required(),
-        // Server port validation
+
+        // Application port validation and API URL
         PORT: Joi.number().default(3000),
+        API_URL: Joi.string().required(),
+
         // Google OAuth credentials validation
         GOOGLE_CLIENT_ID: Joi.string().required(),
         GOOGLE_CLIENT_SECRET: Joi.string().required(),

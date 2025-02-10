@@ -48,7 +48,7 @@ export class SharingService {
     );
 
     if (sendEmail) {
-      const url = `${this.configService.getOrThrow<string>('API_URL')}/folders/${folderId}/shared`;
+      const url = `${this.configService.getOrThrow<string>('API_URL')}/api/folders/${folderId}/shared`;
 
       const mailOptions = {
         to: sharedWith,
@@ -61,6 +61,9 @@ export class SharingService {
             <h2 style="color: #333;">Folder Sharing</h2>
             <p style="color: #555;">Folder <strong>${folder.name}</strong> has been shared with you.</p>
             <p style="color: #555;">Click <a href="${url}" style="color: #007bff; text-decoration: none;">here</a> to access it.</p>
+            <p style="color: #555;">This link will expire in ${timeLimit.toLocaleString()}.</p>
+            <p style="color: #555;">If you can't click the link, copy and paste the following URL in your browser:</p>
+            <p style="color: #555;">${url}</p>
           </div>`
           : undefined,
       };

@@ -33,14 +33,13 @@ async function bootstrap() {
   SwaggerModule.setup('/docs', app, document);
 
   const configService = app.get(ConfigService);
-  const PORT = configService.get<number>('PORT') || 3000;
+  const PORT = configService.getOrThrow<number>('PORT') || 3000;
+  const API_URL = configService.getOrThrow<string>('API_URL');
 
   await app.listen(PORT);
-  Logger.log(`🚀 Server running on http://localhost:${PORT}/api`, 'Bootstrap');
-  Logger.log(
-    `📚 Swagger running on http://localhost:${PORT}/docs`,
-    'Bootstrap',
-  );
+
+  Logger.log(`🚀 Server running on ${API_URL}/api`, 'Bootstrap');
+  Logger.log(`📚 Swagger running on ${API_URL}/docs`, 'Bootstrap');
 }
 
 bootstrap();
