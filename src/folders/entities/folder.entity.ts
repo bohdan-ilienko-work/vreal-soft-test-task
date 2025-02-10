@@ -49,4 +49,7 @@ export class Folder {
     onDelete: 'CASCADE',
   })
   sharings: Sharing[];
+
+  @Column({ type: 'int', default: 1 })
+  order: number;
 }

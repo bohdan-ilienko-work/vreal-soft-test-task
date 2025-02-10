@@ -15,6 +15,7 @@ import { AccessTokenGuard } from 'src/auth/guards/access-token.guard';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { CloneFolderConfigDto } from './dto/clone-folder-config.dto';
 import { SendArchiveViaEmailDto } from './dto/send-archive-via-email.dto';
+import { UpdateFolderOrderDto } from './dto/update-folder-order.dto';
 
 @Controller('folders')
 export class FoldersController {
@@ -115,6 +116,21 @@ export class FoldersController {
     @Param('id') id: string,
   ) {
     return this.foldersService.updateFolder(userId, id, createFolderDto);
+  }
+
+  @Patch(':id/change-order')
+  @ApiBearerAuth()
+  @UseGuards(AccessTokenGuard)
+  changeFolderOrder(
+    @UserId() userId: string,
+    @Param('id') id: string,
+    @Body() updateFolderOrderDto: UpdateFolderOrderDto,
+  ) {
+    return this.foldersService.changeFolderOrder(
+      userId,
+      id,
+      updateFolderOrderDto,
+    );
   }
 
   @Delete(':id')

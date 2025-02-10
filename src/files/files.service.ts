@@ -21,6 +21,7 @@ import { MailService } from 'src/mail/mail.service';
 import { SendFileViaEmailDto } from './dto/send-file-via-email.dto';
 import { MailOptions } from 'src/mail/dto/mail-options.dto';
 import { AccessType } from 'src/core';
+import { UpdateFileOrderDto } from './dto/update-file-order.dto';
 
 @Injectable()
 export class FilesService {
@@ -58,11 +59,17 @@ export class FilesService {
       Body: buffer,
     };
     await this.s3Client.send(new PutObjectCommand(uploadParams));
+
+    const filesCountInFolder = await this.fileRepository.count({
+      where: { folder: { id: folderId } },
+    });
+
     return this.fileRepository.save({
       id: fileId,
       name: originalname,
       user: { id: userId },
       folder: { id: folderId },
+      order: filesCountInFolder + 1,
     });
   }
 
@@ -310,5 +317,39 @@ export class FilesService {
     return this.s3Client
       .send(command)
       .then(({ Body }) => Body as Buffer | undefined);
+  }
+
+  async changeFileOrder(
+    userId: string,
+    fileId: string,
+    updateFileOrderDto: UpdateFileOrderDto,
+  ): Promise<File & { message: string }> {
+    const { order: newOrder } = updateFileOrderDto;
+
+    const file = await this.fileRepository.findOne({
+      where: { id: fileId },
+      relations: ['folder', 'folder.user'],
+    });
+
+    if (!file || file.folder.user.id !== userId) {
+      throw new NotFoundException('File not found');
+    }
+
+    const fileToSwap = await this.fileRepository.findOne({
+      where: { folder: { id: file.folder.id }, order: newOrder },
+    });
+
+    if (!fileToSwap) {
+      throw new NotFoundException('File to swap not found');
+    }
+
+    [file.order, fileToSwap.order] = [fileToSwap.order, file.order];
+
+    await this.fileRepository.save([file, fileToSwap]);
+
+    return {
+      ...file,
+      message: `File ${file.name} order has been changed to ${newOrder}`,
+    };
   }
 }

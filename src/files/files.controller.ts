@@ -22,6 +22,7 @@ import { FilesService } from './files.service';
 import { UpdateFileDto } from './dto/update-file.dto';
 import { SendFileViaEmailDto } from './dto/send-file-via-email.dto';
 import { UpdateSharedFileDto } from './dto/update-shared-file.dto';
+import { UpdateFileOrderDto } from './dto/update-file-order.dto';
 
 @Controller('files')
 export class FilesController {
@@ -100,6 +101,17 @@ export class FilesController {
     @Body() updateFileDto: UpdateFileDto,
   ) {
     return this.filesService.updateFile(userId, id, updateFileDto);
+  }
+
+  @Patch(':id/change-order')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth()
+  changeFileOrder(
+    @UserId() userId: string,
+    @Param('id') id: string,
+    @Query('newOrder') updateOrderFileDto: UpdateFileOrderDto,
+  ) {
+    return this.filesService.changeFileOrder(userId, id, updateOrderFileDto);
   }
 
   @Delete(':id')

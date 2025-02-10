@@ -25,6 +25,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @ApiBearerAuth()
   @UseGuards(RefreshTokenGuard)
   refresh(@UserId() userId: string) {
     return this.authService.refresh(userId);

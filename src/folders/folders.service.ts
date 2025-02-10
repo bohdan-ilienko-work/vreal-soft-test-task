@@ -20,6 +20,7 @@ import { SharingService } from 'src/sharing/sharing.service';
 import { AccessType } from 'src/core';
 import { UpdateSharedFolderDto } from './dto/update-shared-folder.dto';
 import { SharingAccessType } from 'src/sharing/entities/sharing.entity';
+import { UpdateFolderOrderDto } from './dto/update-folder-order.dto';
 
 @Injectable()
 export class FoldersService {
@@ -34,6 +35,18 @@ export class FoldersService {
     private readonly sharingService: SharingService,
   ) {}
 
+  async calculateFolderOrder(userId: string, parentId?: string) {
+    const folders = await this.foldersRepository.find({
+      where: {
+        user: { id: userId },
+        ...(parentId && { parent: { id: parentId } }),
+      },
+      order: { order: 'DESC' },
+    });
+
+    return folders.length ? folders[0].order + 1 : 1;
+  }
+
   async createFolder(userId: string, createFolderDto: CreateFolderDto) {
     const { name, parentId } = createFolderDto;
 
@@ -47,8 +60,11 @@ export class FoldersService {
       throw new NotFoundException('Parent folder not found');
     }
 
+    const order = await this.calculateFolderOrder(userId, parentId);
+
     return this.foldersRepository.save({
       name,
+      order,
       user: { id: userId },
       ...(resolvedParent && { parent: { id: resolvedParent.id } }),
     });
@@ -57,6 +73,7 @@ export class FoldersService {
   createRootFolder(userId: string) {
     return this.foldersRepository.save({
       name: 'root',
+      order: 1,
       user: { id: userId },
     });
   }
@@ -74,16 +91,17 @@ export class FoldersService {
     });
   }
 
+  //TODO: need to be tested
   async getFoldersTree(userId: string) {
     const query = `
       WITH RECURSIVE folder_tree AS (
         SELECT 
-          f.id, f.name, f."parentId", f."userId", f."accessType"
+          f.id, f.name, f."parentId", f."userId", f."accessType", f."order"
         FROM folder f
         WHERE f."userId" = $1 AND f."parentId" IS NULL
         UNION ALL
         SELECT 
-          f.id, f.name, f."parentId", f."userId", f."accessType"
+          f.id, f.name, f."parentId", f."userId", f."accessType", f."order"
         FROM folder f
         INNER JOIN folder_tree ft ON f."parentId" = ft.id
       )
@@ -93,21 +111,28 @@ export class FoldersService {
         ft."parentId",
         ft."userId",
         ft."accessType",
+        ft."order",
         COALESCE(json_agg(
           DISTINCT jsonb_build_object(
             'id', fi.id,
             'name', fi.name,
-            'accessType', fi."accessType"
-          )
+            'accessType', fi."accessType",
+            'order', fi."order"
+          ) ORDER BY fi."order"
         ) FILTER (WHERE fi.id IS NOT NULL), '[]'::json) AS files
       FROM folder_tree ft
       LEFT JOIN file fi ON fi."folderId" = ft.id
-      GROUP BY ft.id, ft.name, ft."parentId", ft."userId", ft."accessType";
+      GROUP BY ft.id, ft.name, ft."parentId", ft."userId", ft."accessType", ft."order"
+      ORDER BY ft."order";
     `;
 
     const rawFolders = (await this.foldersRepository.query(query, [
       userId,
-    ])) as (Folder & { parentId: string | null; files: File[] })[];
+    ])) as (Folder & {
+      parentId: string | null;
+      files: File[];
+      order: number;
+    })[];
 
     // Map folders by id for faster access
     const folderMap = new Map<
@@ -119,7 +144,9 @@ export class FoldersService {
       folderMap.set(folder.id, {
         ...folder,
         children: [],
-        files: folder.files || [],
+        files: folder.files
+          ? folder.files.sort((a, b) => a.order - b.order)
+          : [],
       });
     });
 
@@ -133,6 +160,7 @@ export class FoldersService {
         const parentFolder = folderMap.get(folder.parentId);
         if (parentFolder) {
           parentFolder.children.push(mappedFolder);
+          parentFolder.children.sort((a, b) => a.order - b.order);
         }
       } else {
         rootFolders.push(mappedFolder);
@@ -148,39 +176,46 @@ export class FoldersService {
     folderId: string,
   ): Promise<Folder & { children: Folder[]; files: File[] }> {
     const query = `
-      WITH RECURSIVE folder_tree AS (
-        SELECT 
-          f.id, f.name, f."parentId", f."userId", f."accessType"
-        FROM folder f
-        WHERE f."id" = $1 AND f."userId" = $2
-        UNION ALL
-        SELECT 
-          f.id, f.name, f."parentId", f."userId", f."accessType"
-        FROM folder f
-        INNER JOIN folder_tree ft ON f."parentId" = ft.id
-      )
+    WITH RECURSIVE folder_tree AS (
       SELECT 
-        ft.id,
-        ft.name,
-        ft."parentId",
-        ft."userId",
-        ft."accessType",
-        COALESCE(json_agg(
-          DISTINCT jsonb_build_object(
-            'id', fi.id,
-            'name', fi.name,
-            'accessType', fi."accessType"
-          )
-        ) FILTER (WHERE fi.id IS NOT NULL), '[]'::json) AS files
-      FROM folder_tree ft
-      LEFT JOIN file fi ON fi."folderId" = ft.id
-      GROUP BY ft.id, ft.name, ft."parentId", ft."userId", ft."accessType";
-    `;
+        f.id, f.name, f."parentId", f."userId", f."accessType", f."order"
+      FROM folder f
+      WHERE f."id" = $1 AND f."userId" = $2
+      UNION ALL
+      SELECT 
+        f.id, f.name, f."parentId", f."userId", f."accessType", f."order"
+      FROM folder f
+      INNER JOIN folder_tree ft ON f."parentId" = ft.id
+    )
+    SELECT 
+      ft.id,
+      ft.name,
+      ft."parentId",
+      ft."userId",
+      ft."accessType",
+      ft."order",
+      COALESCE(json_agg(
+        DISTINCT jsonb_build_object(
+          'id', fi.id,
+          'name', fi.name,
+          'accessType', fi."accessType",
+          'order', fi."order"
+        ) ORDER BY fi."order"
+      ) FILTER (WHERE fi.id IS NOT NULL), '[]'::json) AS files
+    FROM folder_tree ft
+    LEFT JOIN file fi ON fi."folderId" = ft.id
+    GROUP BY ft.id, ft.name, ft."parentId", ft."userId", ft."accessType", ft."order"
+    ORDER BY ft."order";
+  `;
 
     const rawFolders = (await this.foldersRepository.query(query, [
       folderId,
       userId,
-    ])) as (Folder & { parentId: string | null; files: File[] })[];
+    ])) as (Folder & {
+      parentId: string | null;
+      files: File[];
+      order: number;
+    })[];
 
     if (!rawFolders.length) {
       throw new NotFoundException(`Folder with id ${folderId} not found`);
@@ -196,7 +231,9 @@ export class FoldersService {
       folderMap.set(folder.id, {
         ...folder,
         children: [],
-        files: folder.files || [],
+        files: folder.files
+          ? folder.files.sort((a, b) => a.order - b.order)
+          : [],
       });
     });
 
@@ -212,6 +249,7 @@ export class FoldersService {
         const parentFolder = folderMap.get(folder.parentId);
         if (parentFolder) {
           parentFolder.children.push(mappedFolder);
+          parentFolder.children.sort((a, b) => a.order - b.order);
         }
       } else {
         rootFolder = mappedFolder;
@@ -356,17 +394,31 @@ export class FoldersService {
     return { message: `Archive successfully sent to ${email}` };
   }
 
+  //TODO: need to be tested
   getFoldersRaw(userId: string) {
     return this.foldersRepository.find({
       where: { user: { id: userId } },
       relations: ['user', 'parent', 'children', 'files'],
+      order: {
+        order: 'ASC',
+        files: {
+          order: 'ASC',
+        },
+      },
     });
   }
 
+  //TODO: need to be tested
   async getFolderRaw(userId: string, folderId: string) {
     const folder = await this.foldersRepository.findOne({
       where: { id: folderId, user: { id: userId } },
       relations: ['user', 'parent', 'children', 'files'],
+      order: {
+        order: 'ASC',
+        files: {
+          order: 'ASC',
+        },
+      },
     });
 
     if (!folder) {
@@ -463,5 +515,30 @@ export class FoldersService {
     }
 
     return clonedFolder;
+  }
+
+  async changeFolderOrder(
+    userId: string,
+    folderId: string,
+    updateFolderOrderDto: UpdateFolderOrderDto,
+  ) {
+    const { order } = updateFolderOrderDto;
+    const folder = await this.findById(folderId);
+
+    this.checkFolderAccess(userId, folder);
+
+    const folderWithSameOrder = await this.foldersRepository.findOne({
+      where: { order, parent: folder!.parent },
+    });
+
+    if (folderWithSameOrder) {
+      await this.foldersRepository.update(folderWithSameOrder.id, {
+        order: folder!.order,
+      });
+    }
+
+    await this.foldersRepository.update(folderId, { order });
+
+    return { message: 'Folder order successfully changed' };
   }
 }
